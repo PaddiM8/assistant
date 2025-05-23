@@ -1,0 +1,9 @@
+appsettings.Secrets.json
+
+bin/
+obj/
+build/
+experiments/
+*.DotSettings.user
+.DS_Store
+**/.DS_Store
