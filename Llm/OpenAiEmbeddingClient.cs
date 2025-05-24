@@ -14,7 +14,7 @@ public class OpenAiEmbeddingClient : IEmbeddingClient
             ?? throw new ArgumentException("Missing API key for OpenAI.");
 
         _logger = logger;
-        _client = new EmbeddingClient("text-embedding-3-large", apiKey);
+        _client = new EmbeddingClient("text-embedding-3-small", apiKey);
     }
 
     public async Task<Vector> GetEmbeddingAsync(string input)
@@ -23,7 +23,7 @@ public class OpenAiEmbeddingClient : IEmbeddingClient
 
         var options = new EmbeddingGenerationOptions
         {
-            Dimensions = 3072,
+            Dimensions = 1536,
         };
         var result = await _client.GenerateEmbeddingAsync(input, options);
 

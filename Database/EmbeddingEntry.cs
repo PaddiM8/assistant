@@ -28,7 +28,7 @@ public class EmbeddingEntry
     /// </summary>
     public NpgsqlTsVector FullTextSearchVector { get; set; } = null!;
 
-    [Column(TypeName = "vector(3072)")]
+    [Column(TypeName = "vector(1536)")]
     [JsonIgnore]
     public Vector? Embedding { get; set; }
 

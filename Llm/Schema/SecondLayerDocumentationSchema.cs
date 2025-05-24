@@ -6,6 +6,7 @@ namespace Assistant.Llm.Schema;
 public enum SecondLayerToolGroup
 {
     Weather,
+    ShoppingList,
 }
 
 [FirstLayerSchema]

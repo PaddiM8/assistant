@@ -20,6 +20,8 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
     private EmbeddingService _embeddingService = null!;
     private IMessagingService _messagingService = null!;
     private ILlmClient _llmClient = null!;
+    private bool _isIdle = true;
+    private Lock _isIdleLock = new();
 
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -46,9 +48,7 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
 
     private void PrepareScope()
     {
-        if (_scope != null)
-            _scope.Dispose();
-
+        _scope?.Dispose();
         _scope = _serviceProvider.CreateScope();
         _applicationContext = _scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         _embeddingService = _scope.ServiceProvider.GetRequiredService<EmbeddingService>();
@@ -58,6 +58,14 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
 
     private async Task DoPeriodicalWorkAsync()
     {
+        lock (_isIdleLock)
+        {
+            if (!_isIdle)
+                return;
+
+            _isIdle = false;
+        }
+
         PrepareScope();
 
         try
@@ -68,6 +76,8 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
         {
             _logger.LogError("An error occurred during periodical work in the scheduling worker. Exception: {Exception}", ex.ToString());
         }
+
+        _isIdle = true;
     }
 
     private async Task ExecuteScheduledEntriesAsync()

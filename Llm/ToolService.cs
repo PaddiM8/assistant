@@ -8,6 +8,7 @@ using Assistant.Database;
 using Assistant.Llm.Schema;
 using Assistant.Messaging;
 using Assistant.Services;
+using Assistant.Services.Planera;
 using Assistant.Utils;
 
 namespace Assistant.Llm;
@@ -19,6 +20,8 @@ public class ToolService(
     SelfPromptService selfPromptService,
     IMessagingService messagingService,
     WeatherService weatherService,
+    PlaneraService planeraService,
+    IConfiguration configuration,
     JsonSerializerOptions jsonSerializerOptions
 )
 {
@@ -29,6 +32,8 @@ public class ToolService(
     private readonly SelfPromptService _selfPromptService = selfPromptService;
     private readonly IMessagingService _messagingService = messagingService;
     private readonly WeatherService _weatherService = weatherService;
+    private readonly PlaneraService _planeraService = planeraService;
+    private readonly IConfiguration _configuration = configuration;
     private readonly JsonSerializerOptions _jsonSerializerOptions = jsonSerializerOptions;
 
     static ToolService()
@@ -86,6 +91,10 @@ public class ToolService(
 
                 // Weather
                 GetWeatherSchema getWeatherSchema => await GetWeatherAsync(getWeatherSchema),
+
+                // Shopping list
+                AddToShoppingListSchema addToShoppingListSchema => await AddToShoppingListAsync(addToShoppingListSchema),
+                RetrieveShoppingListSchema retrieveShoppingListSchema => await RetrieveShoppingListAsync(retrieveShoppingListSchema),
                 _ => throw new NotImplementedException(),
             };
         }
@@ -308,16 +317,18 @@ public class ToolService(
 
     private ToolResponse SecondLayerDocumentation(SecondLayerDocumentationSchema call)
     {
-        var schema = call.ToolGroupName switch
+        List<Type> schemas = call.ToolGroupName switch
         {
-            SecondLayerToolGroup.Weather => typeof(GetWeatherSchema),
+            SecondLayerToolGroup.Weather => [typeof(GetWeatherSchema)],
+            SecondLayerToolGroup.ShoppingList => [
+                typeof(AddToShoppingListSchema),
+                typeof(RetrieveShoppingListSchema)
+            ],
         };
 
         return new ToolResponse(string.Empty, $"Retrieved documentation for {call.ToolGroupName}.")
         {
-            Tools = [
-                OpenAiUtils.CreateFunctionTool(schema),
-            ],
+            Tools = schemas.Select(OpenAiUtils.CreateFunctionTool).ToList(),
         };
     }
 
@@ -328,5 +339,19 @@ public class ToolService(
         var endDateString = call.EndDate.ToUniversalTime().ToString("yyyy-MM-dd");
 
         return new ToolResponse(weatherData, $"Called weather API with start date {startDateString} and end date {endDateString}");
+    }
+
+    private async Task<ToolResponse> AddToShoppingListAsync(AddToShoppingListSchema call)
+    {
+        throw new NotImplementedException();
+    }
+
+    private async Task<ToolResponse> RetrieveShoppingListAsync(RetrieveShoppingListSchema call)
+    {
+        var projectSlug = _configuration.GetSection("Planera").GetValue<string>("ShoppingListSlug")!;
+        var tickets = await _planeraService.GetTicketsAsync(projectSlug, PlaneraTicketFilter.Open);
+        var serialised = JsonSerializer.Serialize(tickets);
+
+        return new ToolResponse(serialised, $"Called Planera API with slug {projectSlug} and filter 'Open'.");
     }
 }

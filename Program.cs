@@ -4,6 +4,7 @@ using Assistant.Database;
 using Assistant.Llm;
 using Assistant.Messaging;
 using Assistant.Services;
+using Assistant.Services.Planera;
 using Assistant.Workers;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,6 +41,7 @@ builder.Services.AddTransient<EmbeddingService>();
 builder.Services.AddTransient<ReminderService>();
 builder.Services.AddTransient<SelfPromptService>();
 builder.Services.AddTransient<WeatherService>();
+builder.Services.AddTransient<PlaneraService>();
 builder.Services.AddTransient<IMessagingService, DiscordMessagingService>();
 
 // Configuration
