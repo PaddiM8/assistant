@@ -1,3 +1,3 @@
 namespace Assistant.Llm;
 
-public record LlmResponse(string Message, List<string> FunctionCallResponses);
+public record LlmResponse(string Message, int FunctionCallCount);

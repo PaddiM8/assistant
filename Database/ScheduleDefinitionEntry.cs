@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Assistant.Llm.Schema;
+using Assistant.Messaging;
 using Microsoft.EntityFrameworkCore;
 
 namespace Assistant.Database;
@@ -20,6 +21,10 @@ public class ScheduleEntry
     public required string Content { get; set; }
 
     public required ScheduleEntryKind Kind { get; set; }
+
+    public required string UserIdentifier { get; set; }
+
+    public MessagePriority Priority { get; set; }
 
     public bool IsActive { get; set; } = true;
 

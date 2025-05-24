@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Assistant.Messaging;
 
 namespace Assistant.Llm.Schema;
 
@@ -31,6 +32,9 @@ public class CreateReminderSchema : IToolSchema
     [Description("What the reminder should say")]
     public required string Message { get; init; }
 
+    [Description("At which urgency the user should be contacted. 'Ping' is used when the user must see it the same day, otherwise 'Normal'")]
+    public MessagePriority? Priority { get; set; }
+
     [Description("How often to repeat the reminder")]
     public Recurrence? Recurrence { get; set; }
 }
@@ -55,6 +59,9 @@ public class UpdateReminderSchema : IToolSchema
 
     [Description("What the reminder should say instead")]
     public string? Message { get; init; }
+
+    [Description("At which urgency the user should be contacted. 'Ping' is used when the user must see it the same day, otherwise 'Normal'")]
+    public MessagePriority? Priority { get; set; }
 
     [Description("How often to repeat the reminder")]
     public Recurrence? Recurrence { get; set; }

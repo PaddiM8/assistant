@@ -4,6 +4,7 @@ using System.Text;
 using Assistant.Llm;
 using Assistant.Utils;
 using DSharpPlus;
+using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 
 public class DiscordWorker(
@@ -76,22 +77,39 @@ public class DiscordWorker(
         if (args.Author.IsBot)
             return;
 
-        var fallbackHistoryMessages = await args.Message.Channel.GetMessagesBeforeAsync(args.Message.Id, limit: 4);
-        var fallbackHistory = fallbackHistoryMessages.Select(x => x.Content);
+        var messagesBeforeId = args.Message.ReferencedMessage == null
+            ? args.Message.Id
+            : args.Message.ReferencedMessage.Id;
+        var fallbackHistoryMessages = await args.Message.Channel.GetMessagesBeforeAsync(messagesBeforeId, limit: 4);
+        var fallbackHistory = fallbackHistoryMessages
+            .Select(x => x.Content)
+            .ToList();
 
-        var llvmResponse = await _llmClient!.SendAsync(args.Message.Content, fallbackHistory);
-        var responseBuilder = new StringBuilder();
-        responseBuilder.AppendLine(llvmResponse.Message.Trim());
-        if (llvmResponse.FunctionCallResponses.Count > 0)
+        var content = args.Message.Content;
+        if (args.Message.ReferencedMessage != null)
         {
-            foreach (var callResponse in llvmResponse.FunctionCallResponses)
-            {
-                responseBuilder.AppendLine("```");
-                responseBuilder.AppendLine(callResponse);
-                responseBuilder.AppendLine("```");
-            }
+            fallbackHistory.Add(args.Message.ReferencedMessage.Content);
+            content = BuildMessageContentWithReply(args.Message);
         }
 
+        var llvmResponse = await _llmClient!.SendAsync(content, args.Message.Author.Id.ToString(), fallbackHistory);
+        var responseBuilder = new StringBuilder();
+        responseBuilder.AppendLine(llvmResponse.Message.Trim());
+
         await args.Message.RespondAsync(responseBuilder.ToString().Truncate(1900, $"... (message was {responseBuilder.Length} characters)"));
+    }
+
+    private static string BuildMessageContentWithReply(DiscordMessage message)
+    {
+        var referencedContent = message.ReferencedMessage.Content;
+        var quotedUser = message.ReferencedMessage.Author.IsBot ? "Assistant" : "User";
+        var builder = new StringBuilder();
+        builder.AppendLine($"Quote from {quotedUser}:");
+        builder.Append("> ");
+        builder.AppendLine(referencedContent.Replace("\n", "\n> "));
+        builder.AppendLine();
+        builder.AppendLine(message.Content);
+
+        return builder.ToString();
     }
 }

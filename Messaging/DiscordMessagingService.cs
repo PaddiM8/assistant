@@ -8,6 +8,14 @@ public class DiscordMessagingService(IConfiguration configuration) : IMessagingS
 
     public async Task SendMessageAsync(string message, bool includeInLlmContext)
     {
+        await SendMessageAsync(message, MessagePriority.Normal, string.Empty, includeInLlmContext);
+    }
+
+    public async Task SendMessageAsync(string message, MessagePriority priority, string userIdentifier, bool includeInLlmContext)
+    {
+        if (priority == MessagePriority.Ping)
+            message = $"<@{userIdentifier}> {message}";
+
         var discordClient = DiscordWorker.GetClient()
             ?? throw new InvalidOperationException("Cannot send message. Discord worker has not started yet.");
         var channel = await discordClient.GetChannelAsync(_defaultChannelId);

@@ -1,5 +1,6 @@
 using Assistant.Database;
 using Assistant.Llm.Schema;
+using Assistant.Messaging;
 using Microsoft.EntityFrameworkCore;
 
 namespace Assistant.Services;
@@ -50,7 +51,7 @@ public class ReminderService(EmbeddingService embeddingService, IServiceProvider
         return reminder;
     }
 
-    public async Task UpdateAsync(int id, DateTimeOffset triggerAtLocal, string? message, Recurrence? recurrence)
+    public async Task UpdateAsync(int id, DateTimeOffset triggerAtLocal, string? message, MessagePriority? priority, Recurrence? recurrence)
     {
         using var scope = _serviceProvider.CreateScope();
         var applicationContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -63,6 +64,9 @@ public class ReminderService(EmbeddingService embeddingService, IServiceProvider
 
         if (message != null)
             reminder.Content = message;
+
+        if (priority.HasValue)
+            reminder.Priority = priority.Value;
 
         if (recurrence != null)
         {

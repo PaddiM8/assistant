@@ -4,6 +4,8 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Schema;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Assistant.Llm.Schema;
 
@@ -22,7 +24,10 @@ public static class SchemaUtils
 
     public static JsonNode GetAsNode(Type schemaType)
     {
-        JsonSerializerOptions options = JsonSerializerOptions.Default;
+        var options = new JsonSerializerOptions();
+        options.Converters.Add(new JsonStringEnumConverter());
+        options.TypeInfoResolver = new DefaultJsonTypeInfoResolver();
+
         var schema = options.GetJsonSchemaAsNode(schemaType, _exporterOptions);
 
         return schema;

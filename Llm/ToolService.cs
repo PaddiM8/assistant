@@ -22,6 +22,7 @@ public class ToolService(
     WeatherService weatherService,
     PlaneraService planeraService,
     IConfiguration configuration,
+    ILogger<ToolService> logger,
     JsonSerializerOptions jsonSerializerOptions
 )
 {
@@ -34,6 +35,7 @@ public class ToolService(
     private readonly WeatherService _weatherService = weatherService;
     private readonly PlaneraService _planeraService = planeraService;
     private readonly IConfiguration _configuration = configuration;
+    private readonly ILogger<ToolService> _logger = logger;
     private readonly JsonSerializerOptions _jsonSerializerOptions = jsonSerializerOptions;
 
     static ToolService()
@@ -46,7 +48,7 @@ public class ToolService(
             .ToDictionary(x => SchemaUtils.GetToolName(x), x => x);
     }
 
-    public async Task<ToolResponse> Execute(string name, JsonElement node)
+    public async Task<ToolResponse> Execute(string name, JsonElement node, string userIdentifier)
     {
         if (!_toolNameToSchema.TryGetValue(name, out var schemaType))
             return new ToolResponse($"Tool not found: '{name}'.");
@@ -56,7 +58,7 @@ public class ToolService(
             if (node.Deserialize(schemaType, _jsonSerializerOptions) is not IToolSchema deserialised)
                 return new ToolResponse($"Failed to deserialise tool call");
 
-            return await Execute(deserialised);
+            return await Execute(deserialised, userIdentifier);
         }
         catch (Exception ex)
         {
@@ -64,14 +66,14 @@ public class ToolService(
         }
     }
 
-    public async Task<ToolResponse> Execute(IToolSchema tool)
+    public async Task<ToolResponse> Execute(IToolSchema tool, string userIdentifier)
     {
         try
         {
             return tool switch
             {
                 // Reminders
-                CreateReminderSchema createReminderSchema => await CreateReminderAsync(createReminderSchema),
+                CreateReminderSchema createReminderSchema => await CreateReminderAsync(createReminderSchema, userIdentifier),
                 RemoveReminderSchema removeReminderSchema => await RemoveReminderAsync(removeReminderSchema),
                 UpdateReminderSchema updateReminderSchema => await UpdateReminderAsync(updateReminderSchema),
 
@@ -83,11 +85,11 @@ public class ToolService(
                 UpdateVectorMemorySchema updateVectorMemorySchema => await UpdateVectorMemoryAsync(updateVectorMemorySchema),
 
                 // Autonomy
-                ScheduledSelfPromptSchema selfPromptSchema => await SelfPromptAsync(selfPromptSchema),
-                MessageUserSchema messageUserSchema => await MessageUserAsync(messageUserSchema),
+                ScheduledSelfPromptSchema selfPromptSchema => await SelfPromptAsync(selfPromptSchema, userIdentifier),
+                MessageUserSchema messageUserSchema => await MessageUserAsync(messageUserSchema, userIdentifier),
 
                 // Second layer
-                SecondLayerDocumentationSchema secondLayerDocumentationSchema => SecondLayerDocumentation(secondLayerDocumentationSchema),
+                SecondLayerDocumentationSchema secondLayerDocumentationSchema => await SecondLayerDocumentationAsync(secondLayerDocumentationSchema),
 
                 // Weather
                 GetWeatherSchema getWeatherSchema => await GetWeatherAsync(getWeatherSchema),
@@ -95,16 +97,28 @@ public class ToolService(
                 // Shopping list
                 AddToShoppingListSchema addToShoppingListSchema => await AddToShoppingListAsync(addToShoppingListSchema),
                 RetrieveShoppingListSchema retrieveShoppingListSchema => await RetrieveShoppingListAsync(retrieveShoppingListSchema),
+
+                // Home automation
+                ListSmartHomeEntityIdsSchema listSmartHomeEntityIdsSchema => await ListSmartHomeEntityIdsAsync(listSmartHomeEntityIdsSchema),
+                ControlSmartLightSchema controlSmartLightSchema => await ControlSmartLightAsync(controlSmartLightSchema),
                 _ => throw new NotImplementedException(),
             };
         }
         catch (Exception ex)
         {
+            _logger.LogError("Call failed: {Exception}", ex.ToString());
+            await SendUserResponseAsync($"Call failed: '{ex.Message}'.");
+
             return new ToolResponse($"Call failed: '{ex.Message}'.");
         }
     }
 
-    private async Task<ToolResponse> CreateReminderAsync(CreateReminderSchema call)
+    private async Task SendUserResponseAsync(string response)
+    {
+        await _messagingService.SendMessageAsync($"```\n{response}\n```", includeInLlmContext: false);
+    }
+
+    private async Task<ToolResponse> CreateReminderAsync(CreateReminderSchema call, string userIdentifier)
     {
         var reminder = new ScheduleEntry
         {
@@ -112,6 +126,8 @@ public class ToolService(
             TriggerAtUtc = call.TriggerDateTime.UtcDateTime,
             Content = call.Message,
             Kind = ScheduleEntryKind.Reminder,
+            Priority = call.Priority ?? MessagePriority.Normal,
+            UserIdentifier = userIdentifier,
             RecurrenceUnit = call.Recurrence?.Frequency,
             RecurrenceInterval = call.Recurrence?.Interval,
         };
@@ -123,9 +139,9 @@ public class ToolService(
             call.Recurrence?.Frequency,
             call.Recurrence?.Interval
         );
-        var userResponse = $"Created reminder {id}. {schedulingString}";
+        await SendUserResponseAsync($"Created reminder {id}. {schedulingString}");
 
-        return new ToolResponse($"Created reminder with ID {id}.", userResponse);
+        return new ToolResponse($"Created reminder with ID {id}.");
     }
 
     private async Task<ToolResponse> RemoveReminderAsync(RemoveReminderSchema call)
@@ -138,23 +154,23 @@ public class ToolService(
             reminder.RecurrenceInterval,
             isUtc: true
         );
-        var userResponse =  $"Removed reminder {call.Id}. {schedulingString}.";
+        await SendUserResponseAsync($"Removed reminder {call.Id}. {schedulingString}.");
 
-        return new ToolResponse($"Removed reminder {call.Id}.", userResponse);
+        return new ToolResponse($"Removed reminder {call.Id}.");
     }
 
     private async Task<ToolResponse> UpdateReminderAsync(UpdateReminderSchema call)
     {
-        await _reminderService.UpdateAsync(call.Id, call.TriggerDateTime, call.Message, call.Recurrence);
+        await _reminderService.UpdateAsync(call.Id, call.TriggerDateTime, call.Message, call.Priority, call.Recurrence);
         var schedulingString = BuildSchedulingString(
             call.TriggerDateTime,
             call.Message,
             call.Recurrence?.Frequency,
             call.Recurrence?.Interval
         );
-        var userResponse =  $"Updated reminder {call.Id}. {schedulingString}";
+        await SendUserResponseAsync($"Updated reminder {call.Id}. {schedulingString}");
 
-        return new ToolResponse($"Updated reminder {call.Id}.", userResponse);
+        return new ToolResponse($"Updated reminder {call.Id}.");
     }
 
     private async Task<ToolResponse> AddUserVectorMemoryAsync(AddUserVectorMemorySchema call)
@@ -166,7 +182,9 @@ public class ToolService(
 
         var builder = new StringBuilder();
         builder.AppendLine($"User memory added with ID {entry.Id}");
-        var userResponse = builder.ToString().Trim() + ".";
+
+        await SendUserResponseAsync(builder.ToString() + ": " + call.Content.Truncate(500, "... (truncated)"));
+
         if (nearestNeighbours.Count > 0)
         {
             builder.Append(" next to the following entries (top 3 nearest neighbours):");
@@ -176,7 +194,7 @@ public class ToolService(
             builder.AppendLine("Instructions for assistant: Determine if any of these entries are redundant/obsolete/invalid given the context of the new memory. If so, remove them.");
         }
 
-        return new ToolResponse(builder.ToString(), userResponse);
+        return new ToolResponse(builder.ToString());
     }
 
     private async Task<ToolResponse> AddAssistantVectorMemoryAsync(AddAssistantVectorMemorySchema call)
@@ -188,7 +206,9 @@ public class ToolService(
 
         var builder = new StringBuilder();
         builder.AppendLine($"Assistant memory added with ID {entry.Id}");
-        var userResponse = builder.ToString().Trim() + $". Content: '{call.Content}'.";
+
+        await SendUserResponseAsync(builder.ToString() + ": " + call.Content.Truncate(500, "... (truncated)"));
+
         if (nearestNeighbours.Count > 0)
         {
             builder.Append(" next to the following entries (top 3 nearest neighbours):");
@@ -198,7 +218,7 @@ public class ToolService(
             builder.AppendLine("Instructions for assistant: Determine if any of these entries are redundant/obsolete/invalid given the context of the new memory. If so, remove them.");
         }
 
-        return new ToolResponse(builder.ToString(), userResponse);
+        return new ToolResponse(builder.ToString());
     }
 
     private async Task<ToolResponse> SearchVectorMemoryAsync(SearchVectorMemorySchema call)
@@ -215,6 +235,8 @@ public class ToolService(
         if (nearestList.Count == 0)
             return new ToolResponse("No entry was found.");
 
+        await SendUserResponseAsync(BuildEmbeddingListStringForUser(nearestList));
+
         var builder = new StringBuilder();
         builder.AppendLine("Nearest neighbours (top 3):");
         builder.AppendLine(BuildEmbeddingListString(nearestList));
@@ -226,17 +248,17 @@ public class ToolService(
     private async Task<ToolResponse> RemoveVectorMemoryAsync(RemoveVectorMemorySchema call)
     {
         var entry = await _embeddingService.RemoveAsync(call.Id);
-        var userResponse = $"Removed vector memory {call.Id}. Content: '{entry.Content.Truncate(100, "...")}'";
+        await SendUserResponseAsync($"Removed vector memory {call.Id}. Content: {entry.Content.Truncate(100, "...")}");
 
-        return new ToolResponse($"Removed vector memory {call.Id}.", userResponse);
+        return new ToolResponse($"Removed vector memory {call.Id}.");
     }
 
     private async Task<ToolResponse> UpdateVectorMemoryAsync(UpdateVectorMemorySchema call)
     {
         await _embeddingService.UpdateAsync(call.Id, call.Content);
-        var userResponse = $"Updated vector memory {call.Id}. Content: '{call.Content.Truncate(100, "...")}'";
+        await SendUserResponseAsync($"Updated vector memory {call.Id}. Content: {call.Content.Truncate(100, "...")}");
 
-        return new ToolResponse($"Updated vector memory {call.Id}.", userResponse);
+        return new ToolResponse($"Updated vector memory {call.Id}.");
     }
 
     private static string BuildSchedulingString(
@@ -294,39 +316,68 @@ public class ToolService(
         return builder.ToString();
     }
 
-    private async Task<ToolResponse> SelfPromptAsync(ScheduledSelfPromptSchema call)
+    private static string BuildEmbeddingListStringForUser(IEnumerable<EmbeddingEntry> entries)
     {
-        var id = await _selfPromptService.Schedule(call.TriggerDateTime, call.Prompt, call.Recurrence);
+        var builder = new StringBuilder();
+        bool isFirst = true;
+
+        foreach (var entry in entries)
+        {
+            var maxLength = isFirst ? 750 : 250;
+            var truncatedContent = entry.Content.Truncate(maxLength, "... (truncated)");
+            builder.AppendLine($"{entry.AddedAtUtc.ToString("yyyy-MM-dd HH:mm")} [{entry.Context})] ID={entry.Id}:");
+
+            if (entry.RelatedItemTableName != null)
+                builder.AppendLine($"(Item: ID={entry.RelatedItemId}, Table={entry.RelatedItemTableName})");
+
+            builder.AppendLine($" > {truncatedContent}");
+
+            builder.AppendLine();
+            isFirst = false;
+        }
+
+        return builder.ToString();
+    }
+
+    private async Task<ToolResponse> SelfPromptAsync(ScheduledSelfPromptSchema call, string userIdentifier)
+    {
+        var id = await _selfPromptService.Schedule(call.TriggerDateTime, call.Prompt, userIdentifier, call.Recurrence);
         var schedulingString = BuildSchedulingString(
             call.TriggerDateTime,
             call.Prompt,
             call.Recurrence?.Frequency,
             call.Recurrence?.Interval
         );
-        var userResponse = $"Created self-prompt {id}. {schedulingString}.";
+        await SendUserResponseAsync($"Created self-prompt {id}: {schedulingString}.");
 
-        return new ToolResponse($"Created self-prompt with ID {id}.", userResponse);
+        return new ToolResponse($"Created self-prompt with ID {id}.");
     }
 
-    private async Task<ToolResponse> MessageUserAsync(MessageUserSchema call)
+    private async Task<ToolResponse> MessageUserAsync(MessageUserSchema call, string userIdentifier)
     {
-        await _messagingService.SendMessageAsync(call.Message, includeInLlmContext: true);
+        await _messagingService.SendMessageAsync(call.Message, call.Priority, userIdentifier, includeInLlmContext: true);
 
         return new ToolResponse($"Sent message to user.");
     }
 
-    private ToolResponse SecondLayerDocumentation(SecondLayerDocumentationSchema call)
+    private async Task<ToolResponse> SecondLayerDocumentationAsync(SecondLayerDocumentationSchema call)
     {
         List<Type> schemas = call.ToolGroupName switch
         {
             SecondLayerToolGroup.Weather => [typeof(GetWeatherSchema)],
             SecondLayerToolGroup.ShoppingList => [
                 typeof(AddToShoppingListSchema),
-                typeof(RetrieveShoppingListSchema)
+                typeof(RetrieveShoppingListSchema),
+            ],
+            SecondLayerToolGroup.HomeAutomation => [
+                typeof(ListSmartHomeEntityIdsSchema),
+                typeof(ControlSmartLightSchema),
             ],
         };
 
-        return new ToolResponse(string.Empty, $"Retrieved documentation for {call.ToolGroupName}.")
+        await SendUserResponseAsync($"Retrieved documentation for {call.ToolGroupName}.");
+
+        return new ToolResponse(string.Empty)
         {
             Tools = schemas.Select(OpenAiUtils.CreateFunctionTool).ToList(),
         };
@@ -337,8 +388,9 @@ public class ToolService(
         var weatherData = await _weatherService.GetWeatherDataAsync(call.Longitude, call.Latitude, call.StartDate, call.EndDate);
         var startDateString = call.StartDate.ToUniversalTime().ToString("yyyy-MM-dd");
         var endDateString = call.EndDate.ToUniversalTime().ToString("yyyy-MM-dd");
+        await SendUserResponseAsync($"Called weather API with start date {startDateString} and end date {endDateString}");
 
-        return new ToolResponse(weatherData, $"Called weather API with start date {startDateString} and end date {endDateString}");
+        return new ToolResponse(weatherData);
     }
 
     private async Task<ToolResponse> AddToShoppingListAsync(AddToShoppingListSchema call)
@@ -351,7 +403,22 @@ public class ToolService(
         var projectSlug = _configuration.GetSection("Planera").GetValue<string>("ShoppingListSlug")!;
         var tickets = await _planeraService.GetTicketsAsync(projectSlug, PlaneraTicketFilter.Open);
         var serialised = JsonSerializer.Serialize(tickets);
+        await SendUserResponseAsync($"Called Planera API with slug {projectSlug} and filter 'Open'.");
 
-        return new ToolResponse(serialised, $"Called Planera API with slug {projectSlug} and filter 'Open'.");
+        return new ToolResponse(serialised);
+    }
+
+    private async Task<ToolResponse> ControlSmartLightAsync(ControlSmartLightSchema call)
+    {
+        await SendUserResponseAsync($"Called smart home API. ID: {call.EntityId}, IsOn: {call.IsOn}, Brightness: {call.Brightness}, Temperature: {call.Temperature}");
+
+        return new ToolResponse("Success.");
+    }
+
+    private async Task<ToolResponse> ListSmartHomeEntityIdsAsync(ListSmartHomeEntityIdsSchema call)
+    {
+        await SendUserResponseAsync("Retrieved list of smart home entities.");
+
+        return new ToolResponse("['living_room_lamp': 'living room lamp', 'hallway_lamp': 'hallway lamp', 'floor_lamp': 'floor lamp in living room', 'bedroom_lamp': 'bedroom lamp', 'automatic_lights': 'all smart lights in the home']");
     }
 }

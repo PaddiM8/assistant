@@ -7,6 +7,7 @@ public enum SecondLayerToolGroup
 {
     Weather,
     ShoppingList,
+    HomeAutomation,
 }
 
 [FirstLayerSchema]

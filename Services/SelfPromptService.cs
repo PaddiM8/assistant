@@ -7,7 +7,7 @@ public class SelfPromptService(IServiceProvider serviceProvider)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
 
-    public async Task<int> Schedule(DateTimeOffset triggerAtLocal, string prompt, Recurrence? recurrence)
+    public async Task<int> Schedule(DateTimeOffset triggerAtLocal, string prompt, string userIdentifier, Recurrence? recurrence)
     {
         using var scope = _serviceProvider.CreateScope();
         var applicationContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -18,6 +18,7 @@ public class SelfPromptService(IServiceProvider serviceProvider)
             TriggerAtUtc = triggerAtLocal.UtcDateTime,
             Content = prompt,
             Kind = ScheduleEntryKind.SelfPrompt,
+            UserIdentifier = userIdentifier,
             RecurrenceUnit = recurrence?.Frequency,
             RecurrenceInterval = recurrence?.Interval,
         };

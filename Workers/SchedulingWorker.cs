@@ -14,6 +14,7 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly ILogger<SchedulingWorker> _logger = logger;
+    private readonly Lock _isIdleLock = new();
     private Timer? _timer;
     private IServiceScope? _scope;
     private ApplicationDbContext _applicationContext = null!;
@@ -21,8 +22,6 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
     private IMessagingService _messagingService = null!;
     private ILlmClient _llmClient = null!;
     private bool _isIdle = true;
-    private Lock _isIdleLock = new();
-
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -161,7 +160,7 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
     {
         _logger.LogInformation("Triggering reminder {Reminder} with message '{Message}'.", entry.Id, entry.Content);
 
-        await _messagingService.SendMessageAsync(entry.Content, includeInLlmContext: true);
+        await _messagingService.SendMessageAsync(entry.Content, entry.Priority, entry.UserIdentifier, includeInLlmContext: true);
     }
 
     private async Task ExecuteSelfPromptAsync(ScheduleEntry entry)
@@ -170,8 +169,8 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
 
         try
         {
-            var llmResponse = await _llmClient.SendSelfPromptAsync(entry.Content);
-            if (llmResponse.FunctionCallResponses.Count == 0)
+            var llmResponse = await _llmClient.SendSelfPromptAsync(entry.Content, entry.UserIdentifier);
+            if (llmResponse.FunctionCallCount == 0)
             {
                 await _messagingService.SendMessageAsync(
                     $"[System] Self-prompt {entry.Id} failed because no function calls were made. Prompt: '{entry.Content}'.",
@@ -181,16 +180,6 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
             else
             {
                 var responseBuilder = new StringBuilder();
-                foreach (var callResponse in llmResponse.FunctionCallResponses)
-                {
-                    if (callResponse.Contains("Sent message to user"))
-                        continue;
-
-                    responseBuilder.AppendLine("```");
-                    responseBuilder.AppendLine(callResponse);
-                    responseBuilder.AppendLine("```");
-                }
-
                 var response = responseBuilder.ToString();
                 if (!string.IsNullOrWhiteSpace(response))
                     await _messagingService.SendMessageAsync(response, includeInLlmContext: true);
