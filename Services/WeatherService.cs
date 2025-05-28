@@ -1,14 +1,38 @@
+using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json.Nodes;
+using System.Web;
 
 namespace Assistant.Services;
 
-public class WeatherService(IHttpClientFactory httpClientFactory, ILogger<WeatherService> logger)
+public class WeatherService(
+    IHttpClientFactory httpClientFactory,
+    ILogger<WeatherService> logger,
+    IConfiguration configuration
+)
 {
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private readonly ILogger<WeatherService> _logger = logger;
+    private readonly IConfiguration _configuration = configuration;
 
-    public async Task<string> GetWeatherDataAsync(float longitude, float latitude, DateTime startDateUtc, DateTime endDateUtc)
+    public async Task<string> GetWeatherDataAsync(string locationName, DateTime startDateUtc, DateTime endDateUtc)
     {
+        // Geocoding API
+        var geocodingHttpClient = _httpClientFactory.CreateClient();
+        var nominatimUserAgent = _configuration.GetSection("Nominatim").GetValue<string>("UserAgent");
+        geocodingHttpClient.DefaultRequestHeaders.UserAgent.ParseAdd(nominatimUserAgent);
+        var geocodingResponse = await geocodingHttpClient.GetAsync($"https://nominatim.openstreetmap.org/search?q={HttpUtility.UrlEncode(locationName)}&format=jsonv2");
+        geocodingResponse.EnsureSuccessStatusCode();
+
+        var geocodingNodes = (await geocodingResponse.Content.ReadFromJsonAsync<JsonNode>())!.AsArray();
+        var latitude = geocodingNodes.FirstOrDefault()?["lat"]?.GetValue<string>();
+        var longitude = geocodingNodes.FirstOrDefault()?["lon"]?.GetValue<string>();
+
+        if (string.IsNullOrEmpty(latitude) || string.IsNullOrEmpty(longitude))
+            throw new ArgumentException($"Couldn't find coordinates for '{locationName}'.");
+
+        // Weather API
+        var weatherHttpClient = _httpClientFactory.CreateClient();
         var startDateString = startDateUtc.ToString("yyyy-MM-dd");
         var endDateString = endDateUtc.ToString("yyyy-MM-dd");
 
@@ -34,8 +58,7 @@ public class WeatherService(IHttpClientFactory httpClientFactory, ILogger<Weathe
             queryBuilder.Append($"&end_date={endDateString}");
         }
 
-        var httpClient = _httpClientFactory.CreateClient();
-        var response = await httpClient.GetAsync(queryBuilder.ToString());
+        var response = await weatherHttpClient.GetAsync(queryBuilder.ToString());
         var responseString = await response.Content.ReadAsStringAsync();
         _logger.LogInformation("Received weather data: {ApiResponse}.", responseString);
 

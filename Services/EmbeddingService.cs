@@ -8,6 +8,8 @@ namespace Assistant.Services;
 
 public class EmbeddingService(IEmbeddingClient embeddingClient, IServiceProvider serviceProvider)
 {
+    public const string DateFormat = "yyyy-MM-ddTHH:mm:ssZ";
+
     private readonly IEmbeddingClient _embeddingClient = embeddingClient;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
 

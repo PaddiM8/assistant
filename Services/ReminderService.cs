@@ -94,9 +94,9 @@ public class ReminderService(EmbeddingService embeddingService, IServiceProvider
 
     private static string BuildEmbeddingContent(string message, DateTimeOffset localTriggerTime, Frequency? recurrenceUnit, int? recurrenceInterval)
     {
-        var triggerAtString = localTriggerTime.ToString("O");
+        var triggerAtString = localTriggerTime.ToString(EmbeddingService.DateFormat);
         if (!recurrenceUnit.HasValue)
-            return $"Reminder set for {triggerAtString} with message: '{message}'.";
+            return $"Reminder scheduled for {triggerAtString} with prompt: '{message}'.";
 
         var unit = recurrenceUnit switch
         {
@@ -106,6 +106,6 @@ public class ReminderService(EmbeddingService embeddingService, IServiceProvider
             Frequency.Yearly => "year(s)",
         };
 
-        return $"Reminder set for initial trigger at {triggerAtString} and then every {recurrenceInterval} {unit} with message: '{message}'";
+        return $"Reminder scheduled for initial trigger at {triggerAtString} and then every {recurrenceInterval} {unit} with prompt: '{message}'";
     }
 }

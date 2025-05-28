@@ -5,6 +5,7 @@ namespace Assistant.Llm.Schema;
 
 public enum SecondLayerToolGroup
 {
+    Reminders,
     Weather,
     ShoppingList,
     HomeAutomation,

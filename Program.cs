@@ -42,16 +42,8 @@ builder.Services.AddTransient<ReminderService>();
 builder.Services.AddTransient<SelfPromptService>();
 builder.Services.AddTransient<WeatherService>();
 builder.Services.AddTransient<PlaneraService>();
+builder.Services.AddTransient<HomeAssistantService>();
 builder.Services.AddTransient<IMessagingService, DiscordMessagingService>();
-
-// Configuration
-var jsonSerializerOptions = new JsonSerializerOptions
-{
-    PropertyNameCaseInsensitive = true,
-};
-jsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-
-builder.Services.AddSingleton(jsonSerializerOptions);
 
 var host = builder.Build();
 host.Run();

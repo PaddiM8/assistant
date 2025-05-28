@@ -4,7 +4,7 @@ using Assistant.Database;
 namespace Assistant.Llm.Schema;
 
 [FirstLayerSchema]
-[Description("Add an entry to the vector database with information that the user might want to keep for later.")]
+[Description("Add an entry to the vector database with information that the USER might want to keep for later. This is from the perspective of the user")]
 public class AddUserVectorMemorySchema : IToolSchema
 {
     [Description("The information to save (in English)")]

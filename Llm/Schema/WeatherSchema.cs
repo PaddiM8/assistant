@@ -6,11 +6,8 @@ namespace Assistant.Llm.Schema;
 [Description("Retrieves information about the weather for the given location")]
 public class GetWeatherSchema : IToolSchema
 {
-    [Description("The longitude of the location")]
-    public required float Longitude { get; set; }
-
-    [Description("The latitude of the location")]
-    public required float Latitude { get; set; }
+    [Description("The name of the location")]
+    public required string LocationName { get; set; }
 
     [Description("Start date")]
     public required DateTime StartDate { get; set; }

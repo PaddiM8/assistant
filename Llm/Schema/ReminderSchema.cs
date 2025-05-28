@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json.Serialization;
 using Assistant.Messaging;
 
 namespace Assistant.Llm.Schema;
@@ -11,7 +12,6 @@ public enum Frequency
     Yearly,
 }
 
-[FirstLayerSchema]
 [Description("Recurrence. MUST be a JSON object. Example: { \"Frequency\" = \"Daily\", \"Interval\" = 3 } means 'every three days'.")]
 public class Recurrence
 {
@@ -22,7 +22,7 @@ public class Recurrence
     public int Interval { get; set; } = 1;
 }
 
-[FirstLayerSchema]
+[SecondLayerSchema]
 [Description("Create a reminder. Keep it mind that reminders often should be triggered before events with some margin. You may decide the time and message yourself if relevant and doable.")]
 public class CreateReminderSchema : IToolSchema
 {
@@ -39,7 +39,7 @@ public class CreateReminderSchema : IToolSchema
     public Recurrence? Recurrence { get; set; }
 }
 
-[FirstLayerSchema]
+[SecondLayerSchema]
 [Description("Remove a reminder")]
 public class RemoveReminderSchema : IToolSchema
 {
@@ -47,7 +47,7 @@ public class RemoveReminderSchema : IToolSchema
     public required int Id { get; init; }
 }
 
-[FirstLayerSchema]
+[SecondLayerSchema]
 [Description("Update a reminder")]
 public class UpdateReminderSchema : IToolSchema
 {
