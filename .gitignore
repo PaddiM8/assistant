@@ -1,4 +1,5 @@
 appsettings.Secrets.json
+assistant.env
 
 bin/
 obj/

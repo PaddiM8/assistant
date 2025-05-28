@@ -1,0 +1,29 @@
+services:
+  assistant:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: assistant.env
+    environment:
+      ASSISTANT_CONNECTIONSTRINGS__APPLICATIONDBCONTEXT: "Host=postgres;Port=5432;Database=assistant;Username=postgres;Password=postgres"
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}" ]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: assistant
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+volumes:
+  pgdata:

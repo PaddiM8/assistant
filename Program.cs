@@ -9,6 +9,7 @@ using Assistant.Workers;
 using Microsoft.EntityFrameworkCore;
 
 var builder = Host.CreateApplicationBuilder(args);
+builder.Configuration.AddEnvironmentVariables(prefix: "ASSISTANT_");
 
 builder.Configuration.AddJsonFile(
     "appsettings.Secrets.json",
@@ -46,4 +47,12 @@ builder.Services.AddTransient<HomeAssistantService>();
 builder.Services.AddTransient<IMessagingService, DiscordMessagingService>();
 
 var host = builder.Build();
+
+// Apply migrations
+using (var scope = host.Services.CreateScope())
+{
+    var applicationContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    applicationContext.Database.Migrate();
+}
+
 host.Run();
