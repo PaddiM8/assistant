@@ -163,6 +163,7 @@ public class OpenAiLlmClient : ILlmClient
                 * When querying the vector db, write whole sentences if possible, with as much context as possible
                 * Don't save memories from system messages
                 * Before telling the user that a task was completed, make sure that the tool output indicated success
+                * If a tool call fails, give up after at most 3 failed calls
 
                 The current date + hour is {now} ({dayOfWeek}).
                 """);

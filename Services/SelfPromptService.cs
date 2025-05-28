@@ -73,7 +73,7 @@ public class SelfPromptService(IServiceProvider serviceProvider, EmbeddingServic
         var entry = await applicationContext.ScheduleEntries.FindAsync(id)
             ?? throw new ArgumentException($"Entry not found: {id}");
 
-        entry.TriggerAtUtc = triggerAtLocal.LocalDateTime;
+        entry.TriggerAtUtc = triggerAtLocal.UtcDateTime;
 
         if (prompt != null)
             entry.Content = prompt;
