@@ -27,7 +27,10 @@ public class Recurrence
 public class CreateReminderSchema : IToolSchema
 {
     [Description("When the reminder should (first) be triggered")]
-    public required DateTimeOffset TriggerDateTime { get; init; }
+    public required DateTime TriggerDateTime { get; init; }
+
+    [Description("Whether the trigger time has been converted from relative time (eg. 'in 3 days')")]
+    public required bool WasConvertedFromRelativeTime { get; init; }
 
     [Description("What the reminder should say")]
     public required string Message { get; init; }
@@ -55,7 +58,10 @@ public class UpdateReminderSchema : IToolSchema
     public required int Id { get; init; }
 
     [Description("When the reminder should (first) be triggered")]
-    public required DateTimeOffset TriggerDateTime { get; init; }
+    public required DateTime TriggerDateTime { get; init; }
+
+    [Description("Whether the trigger time has been converted from relative time (eg. 'in 3 days')")]
+    public required bool WasConvertedFromRelativeTime { get; init; }
 
     [Description("What the reminder should say instead")]
     public string? Message { get; init; }

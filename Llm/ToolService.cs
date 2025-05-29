@@ -30,6 +30,7 @@ public class ToolService
     private readonly PlaneraService _planeraService;
     private readonly HomeAssistantService _homeAssistantService;
     private readonly IConfiguration _configuration;
+    private readonly TimeService _timeService;
     private readonly ILogger<ToolService> _logger;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
 
@@ -53,6 +54,7 @@ public class ToolService
         PlaneraService planeraService,
         HomeAssistantService homeAssistantService,
         IConfiguration configuration,
+        TimeService timeService,
         ILogger<ToolService> logger
     )
     {
@@ -65,6 +67,7 @@ public class ToolService
         _planeraService = planeraService;
         _homeAssistantService = homeAssistantService;
         _configuration = configuration;
+        _timeService = timeService;
         _logger = logger;
 
         _jsonSerializerOptions = new JsonSerializerOptions
@@ -72,7 +75,6 @@ public class ToolService
             PropertyNameCaseInsensitive = true,
         };
         _jsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-        _jsonSerializerOptions.Converters.Add(new DateTimeOffsetJsonConverter());
     }
 
     public async Task<ToolResponse> Execute(string name, JsonElement node, string userIdentifier)
@@ -167,6 +169,15 @@ public class ToolService
         };
     }
 
+    private DateTime MakeTimeRelative(DateTime dateTime)
+    {
+        var now = _timeService.GetNow();
+
+        return dateTime
+            .AddMinutes(now.Minute)
+            .AddSeconds(now.Second);
+    }
+
     private async Task SendUserResponseAsync(string response)
     {
         await _messagingService.SendMessageAsync($"```cs\n{response}\n```", includeInLlmContext: false);
@@ -174,11 +185,15 @@ public class ToolService
 
     private async Task<ToolResponse> CreateReminderAsync(CreateReminderSchema call, string userIdentifier)
     {
-        var now = DateTime.Now;
+
+        var triggerAt = call.WasConvertedFromRelativeTime
+            ? MakeTimeRelative(call.TriggerDateTime)
+            : call.TriggerDateTime;
+
         var reminder = new ScheduleEntry
         {
-            CreatedAtUtc = now.ToUniversalTime(),
-            TriggerAtUtc = call.TriggerDateTime.UtcDateTime,
+            CreatedAtUtc = DateTime.UtcNow,
+            TriggerAtUtc = _timeService.ToUtc(triggerAt),
             Content = call.Message,
             Kind = ScheduleEntryKind.Reminder,
             Priority = call.Priority ?? MessagePriority.Normal,
@@ -216,9 +231,13 @@ public class ToolService
 
     private async Task<ToolResponse> UpdateReminderAsync(UpdateReminderSchema call)
     {
-        await _reminderService.UpdateAsync(call.Id, call.TriggerDateTime, call.Message, call.Priority, call.Recurrence);
+        var triggerAt = call.WasConvertedFromRelativeTime
+            ? MakeTimeRelative(call.TriggerDateTime)
+            : call.TriggerDateTime;
+
+        await _reminderService.UpdateAsync(call.Id, triggerAt, call.Message, call.Priority, call.Recurrence);
         var schedulingString = BuildSchedulingString(
-            call.TriggerDateTime,
+            triggerAt,
             call.Message,
             call.Recurrence?.Frequency,
             call.Recurrence?.Interval
@@ -403,9 +422,13 @@ public class ToolService
 
     private async Task<ToolResponse> ScheduleSelfPromptAsync(ScheduleSelfPromptSchema call, string userIdentifier)
     {
-        var id = await _selfPromptService.Schedule(call.TriggerDateTime, call.Prompt, userIdentifier, call.Recurrence);
+        var triggerAt = call.WasConvertedFromRelativeTime
+            ? MakeTimeRelative(call.TriggerDateTime)
+            : call.TriggerDateTime;
+
+        var id = await _selfPromptService.Schedule(triggerAt, call.Prompt, userIdentifier, call.Recurrence);
         var schedulingString = BuildSchedulingString(
-            call.TriggerDateTime,
+            triggerAt,
             call.Prompt,
             call.Recurrence?.Frequency,
             call.Recurrence?.Interval
@@ -425,9 +448,13 @@ public class ToolService
 
     private async Task<ToolResponse> UpdateSelfPromptAsync(UpdateSelfPromptSchema call)
     {
-        await _selfPromptService.UpdateAsync(call.Id, call.TriggerDateTime, call.Prompt, call.Recurrence);
+        var triggerAt = call.WasConvertedFromRelativeTime
+            ? MakeTimeRelative(call.TriggerDateTime)
+            : call.TriggerDateTime;
+
+        await _selfPromptService.UpdateAsync(call.Id, triggerAt, call.Prompt, call.Recurrence);
         var schedulingString = BuildSchedulingString(
-            call.TriggerDateTime,
+            triggerAt,
             call.Prompt,
             call.Recurrence?.Frequency,
             call.Recurrence?.Interval

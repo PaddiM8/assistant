@@ -7,7 +7,10 @@ namespace Assistant.Llm.Schema;
 public class ScheduleSelfPromptSchema : IToolSchema
 {
     [Description("When the self-prompt should (first) be sent")]
-    public required DateTimeOffset TriggerDateTime { get; init; }
+    public required DateTime TriggerDateTime { get; init; }
+
+    [Description("Whether the trigger time has been converted from relative time (eg. 'in 3 days')")]
+    public required bool WasConvertedFromRelativeTime { get; init; }
 
     [Description("Instructions that the assistant writes to its future self (in English)")]
     public required string Prompt { get; init; }
@@ -24,7 +27,10 @@ public class UpdateSelfPromptSchema : IToolSchema
     public required int Id { get; set; }
 
     [Description("When the self-prompt should (first) be sent")]
-    public required DateTimeOffset TriggerDateTime { get; init; }
+    public required DateTime TriggerDateTime { get; init; }
+
+    [Description("Whether the trigger time has been converted from relative time (eg. 'in 3 days')")]
+    public required bool WasConvertedFromRelativeTime { get; init; }
 
     [Description("Instructions that the assistant writes to its future self (in English)")]
     public string? Prompt { get; init; }

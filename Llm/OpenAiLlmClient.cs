@@ -2,6 +2,7 @@ using System.ClientModel;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Assistant.Llm.Schema;
+using Assistant.Services;
 using OpenAI;
 using OpenAI.Chat;
 
@@ -15,20 +16,23 @@ public class OpenAiLlmClient : ILlmClient
     private static readonly Regex _homeAutomationMessageRegex = new Regex(@"\b(lamps?|lights?|brightness)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private readonly ILogger<OpenAiLlmClient> _logger;
+    private readonly TimeService _timeService;
     private readonly ToolService _toolService;
     private readonly ChatClient _client;
     private readonly Queue<ChatMessage> _history = [];
     private readonly int _historySizeLimit;
 
     public OpenAiLlmClient(
+        ToolService toolService,
         IConfiguration configuration,
         ILogger<OpenAiLlmClient> logger,
-        ToolService toolService
+        TimeService timeService
     )
     {
         string apiKey = configuration.GetSection("OpenAi").GetValue<string>("ApiKey")
             ?? throw new ArgumentException("Missing API key for OpenAI.");
         _logger = logger;
+        _timeService = timeService;
         _toolService = toolService;
         _client = new ChatClient("o4-mini", apiKey);
         _historySizeLimit = configuration.GetSection("OpenAi").GetValue<int>("HistorySizeLimit");
@@ -94,8 +98,8 @@ public class OpenAiLlmClient : ILlmClient
         {
             // Don't include minute and seconds, to make it cacheable. Minutes and seconds
             // are instead added by the DateTimeOffsetJsonConverter, during deserialisation.
-            var now = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:00:00");
-            var dayOfWeek = DateTimeOffset.Now.DayOfWeek.ToString();
+            var now = _timeService.GetNow().ToString("yyyy-MM-ddTHH:00:00");
+            var dayOfWeek = _timeService.GetNow().DayOfWeek.ToString();
             var prompt = ChatMessage.CreateSystemMessage($"""
                 You are a multilingual personal assistant who primarily responds in German, but you understand and can speak
                 English, German, and Swedish. Use 24-hour local time and European spelling conventions.

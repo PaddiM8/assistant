@@ -3,12 +3,17 @@ using Assistant.Llm.Schema;
 
 namespace Assistant.Services;
 
-public class SelfPromptService(IServiceProvider serviceProvider, EmbeddingService embeddingService)
+public class SelfPromptService(
+    IServiceProvider serviceProvider,
+    EmbeddingService embeddingService,
+    TimeService timeService
+)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly EmbeddingService _embeddingService = embeddingService;
+    private readonly TimeService _timeService = timeService;
 
-    public async Task<int> Schedule(DateTimeOffset triggerAtLocal, string prompt, string userIdentifier, Recurrence? recurrence)
+    public async Task<int> Schedule(DateTime triggerAtLocal, string prompt, string userIdentifier, Recurrence? recurrence)
     {
         using var scope = _serviceProvider.CreateScope();
         var applicationContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -17,7 +22,7 @@ public class SelfPromptService(IServiceProvider serviceProvider, EmbeddingServic
         var selfPrompt = new ScheduleEntry
         {
             CreatedAtUtc = DateTime.UtcNow,
-            TriggerAtUtc = triggerAtLocal.UtcDateTime,
+            TriggerAtUtc = _timeService.ToUtc(triggerAtLocal),
             Content = prompt,
             Kind = ScheduleEntryKind.SelfPrompt,
             UserIdentifier = userIdentifier,
@@ -64,7 +69,7 @@ public class SelfPromptService(IServiceProvider serviceProvider, EmbeddingServic
         return entry;
     }
 
-    public async Task UpdateAsync(int id, DateTimeOffset triggerAtLocal, string? prompt, Recurrence? recurrence)
+    public async Task UpdateAsync(int id, DateTime triggerAtLocal, string? prompt, Recurrence? recurrence)
     {
         using var scope = _serviceProvider.CreateScope();
         var applicationContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -73,7 +78,7 @@ public class SelfPromptService(IServiceProvider serviceProvider, EmbeddingServic
         var entry = await applicationContext.ScheduleEntries.FindAsync(id)
             ?? throw new ArgumentException($"Entry not found: {id}");
 
-        entry.TriggerAtUtc = triggerAtLocal.UtcDateTime;
+        entry.TriggerAtUtc = _timeService.ToUtc(triggerAtLocal);
 
         if (prompt != null)
             entry.Content = prompt;
@@ -93,7 +98,7 @@ public class SelfPromptService(IServiceProvider serviceProvider, EmbeddingServic
         {
             embedding.Content = BuildEmbeddingContent(
                 prompt ?? entry.Content,
-                triggerAtLocal.DateTime,
+                triggerAtLocal,
                 recurrence?.Frequency,
                 recurrence?.Interval
             );
@@ -101,7 +106,7 @@ public class SelfPromptService(IServiceProvider serviceProvider, EmbeddingServic
         }
     }
 
-    private static string BuildEmbeddingContent(string prompt, DateTimeOffset localTriggerTime, Frequency? recurrenceUnit, int? recurrenceInterval)
+    private static string BuildEmbeddingContent(string prompt, DateTime localTriggerTime, Frequency? recurrenceUnit, int? recurrenceInterval)
     {
         var triggerAtString = localTriggerTime.ToString(EmbeddingService.DateFormat);
         if (!recurrenceUnit.HasValue)

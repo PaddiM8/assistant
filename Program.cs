@@ -38,6 +38,7 @@ builder.Services.AddTransient<IEmbeddingClient, OpenAiEmbeddingClient>();
 builder.Services.AddTransient<ToolService>();
 
 // General services
+builder.Services.AddTransient<TimeService>();
 builder.Services.AddTransient<EmbeddingService>();
 builder.Services.AddTransient<ReminderService>();
 builder.Services.AddTransient<SelfPromptService>();

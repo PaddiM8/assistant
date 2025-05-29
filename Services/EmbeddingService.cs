@@ -6,12 +6,17 @@ using Pgvector.EntityFrameworkCore;
 
 namespace Assistant.Services;
 
-public class EmbeddingService(IEmbeddingClient embeddingClient, IServiceProvider serviceProvider)
+public class EmbeddingService(
+    IEmbeddingClient embeddingClient,
+    IServiceProvider serviceProvider,
+    TimeService timeService
+)
 {
     public const string DateFormat = "yyyy-MM-ddTHH:mm:ssZ";
 
     private readonly IEmbeddingClient _embeddingClient = embeddingClient;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly TimeService _timeService = timeService;
 
     public async Task<EmbeddingEntry> AddAsync(EmbeddingContextKind context, string input, Type? relatedItemType, int? relatedItemId, Vector? vector = null)
     {
@@ -95,10 +100,10 @@ public class EmbeddingService(IEmbeddingClient embeddingClient, IServiceProvider
             query = query.Where(x => !x.IsStale);
 
         if (afterDateTimeLocal.HasValue)
-            query = query.Where(x => x.AddedAtUtc > afterDateTimeLocal.Value.ToUniversalTime());
+            query = query.Where(x => x.AddedAtUtc > _timeService.ToUtc(afterDateTimeLocal.Value.DateTime));
 
         if (beforeDateTimeLocal.HasValue)
-            query = query.Where(x => x.AddedAtUtc < beforeDateTimeLocal.Value.ToUniversalTime());
+            query = query.Where(x => x.AddedAtUtc < _timeService.ToUtc(beforeDateTimeLocal.Value.DateTime));
 
         return await query
             .OrderBy(x => x.Embedding!.L2Distance(queryVector))
