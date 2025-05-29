@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
@@ -75,6 +76,7 @@ public class ToolService
             PropertyNameCaseInsensitive = true,
         };
         _jsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        _jsonSerializerOptions.Converters.Add(new DateTimeOffsetJsonConverter(_timeService));
     }
 
     public async Task<ToolResponse> Execute(string name, JsonElement node, string userIdentifier)
@@ -169,7 +171,7 @@ public class ToolService
         };
     }
 
-    private DateTime MakeTimeRelative(DateTime dateTime)
+    private DateTimeOffset MakeTimeRelative(DateTimeOffset dateTime)
     {
         var now = _timeService.GetNow();
 
@@ -193,7 +195,7 @@ public class ToolService
         var reminder = new ScheduleEntry
         {
             CreatedAtUtc = DateTime.UtcNow,
-            TriggerAtUtc = _timeService.ToUtc(triggerAt),
+            TriggerAtUtc = triggerAt.UtcDateTime,
             Content = call.Message,
             Kind = ScheduleEntryKind.Reminder,
             Priority = call.Priority ?? MessagePriority.Normal,

@@ -13,7 +13,7 @@ public class SelfPromptService(
     private readonly EmbeddingService _embeddingService = embeddingService;
     private readonly TimeService _timeService = timeService;
 
-    public async Task<int> Schedule(DateTime triggerAtLocal, string prompt, string userIdentifier, Recurrence? recurrence)
+    public async Task<int> Schedule(DateTimeOffset triggerAt, string prompt, string userIdentifier, Recurrence? recurrence)
     {
         using var scope = _serviceProvider.CreateScope();
         var applicationContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -22,7 +22,7 @@ public class SelfPromptService(
         var selfPrompt = new ScheduleEntry
         {
             CreatedAtUtc = DateTime.UtcNow,
-            TriggerAtUtc = _timeService.ToUtc(triggerAtLocal),
+            TriggerAtUtc = triggerAt.UtcDateTime,
             Content = prompt,
             Kind = ScheduleEntryKind.SelfPrompt,
             UserIdentifier = userIdentifier,
@@ -35,7 +35,7 @@ public class SelfPromptService(
         // Embedding entry
         var embeddingContent = BuildEmbeddingContent(
             prompt,
-            triggerAtLocal,
+            triggerAt,
             recurrence?.Frequency,
             recurrence?.Interval
         );
@@ -69,7 +69,7 @@ public class SelfPromptService(
         return entry;
     }
 
-    public async Task UpdateAsync(int id, DateTime triggerAtLocal, string? prompt, Recurrence? recurrence)
+    public async Task UpdateAsync(int id, DateTimeOffset triggerAt, string? prompt, Recurrence? recurrence)
     {
         using var scope = _serviceProvider.CreateScope();
         var applicationContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -78,7 +78,7 @@ public class SelfPromptService(
         var entry = await applicationContext.ScheduleEntries.FindAsync(id)
             ?? throw new ArgumentException($"Entry not found: {id}");
 
-        entry.TriggerAtUtc = _timeService.ToUtc(triggerAtLocal);
+        entry.TriggerAtUtc = triggerAt.UtcDateTime;
 
         if (prompt != null)
             entry.Content = prompt;
@@ -98,7 +98,7 @@ public class SelfPromptService(
         {
             embedding.Content = BuildEmbeddingContent(
                 prompt ?? entry.Content,
-                triggerAtLocal,
+                triggerAt,
                 recurrence?.Frequency,
                 recurrence?.Interval
             );
@@ -106,9 +106,9 @@ public class SelfPromptService(
         }
     }
 
-    private static string BuildEmbeddingContent(string prompt, DateTime localTriggerTime, Frequency? recurrenceUnit, int? recurrenceInterval)
+    private static string BuildEmbeddingContent(string prompt, DateTimeOffset triggerAt, Frequency? recurrenceUnit, int? recurrenceInterval)
     {
-        var triggerAtString = localTriggerTime.ToString(EmbeddingService.DateFormat);
+        var triggerAtString = triggerAt.LocalDateTime.ToString(EmbeddingService.DateFormat);
         if (!recurrenceUnit.HasValue)
             return $"Self-prompt scheduled for {triggerAtString} with prompt: '{prompt}'.";
 

@@ -14,7 +14,7 @@ public class ReminderService(
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly TimeService _timeService = timeService;
 
-    public async Task<int> AddAsync(ScheduleEntry reminder, DateTime triggerAtLocal)
+    public async Task<int> AddAsync(ScheduleEntry reminder, DateTimeOffset triggerAt)
     {
         using var scope = _serviceProvider.CreateScope();
         var applicationContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -26,7 +26,7 @@ public class ReminderService(
         // Embedding entry
         await _embeddingService.AddAsync(
             EmbeddingContextKind.AssistantAction,
-            BuildEmbeddingContent(reminder.Content, triggerAtLocal, reminder.RecurrenceUnit, reminder.RecurrenceInterval),
+            BuildEmbeddingContent(reminder.Content, triggerAt, reminder.RecurrenceUnit, reminder.RecurrenceInterval),
             typeof(ScheduleEntry),
             entry.Entity.Id
         );
@@ -55,7 +55,7 @@ public class ReminderService(
         return reminder;
     }
 
-    public async Task UpdateAsync(int id, DateTime triggerAtLocal, string? message, MessagePriority? priority, Recurrence? recurrence)
+    public async Task UpdateAsync(int id, DateTimeOffset triggerAt, string? message, MessagePriority? priority, Recurrence? recurrence)
     {
         using var scope = _serviceProvider.CreateScope();
         var applicationContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -64,7 +64,7 @@ public class ReminderService(
         var reminder = await applicationContext.ScheduleEntries.FindAsync(id)
             ?? throw new ArgumentException($"Reminder with ID {id} was not found.");
 
-        reminder.TriggerAtUtc = _timeService.ToUtc(triggerAtLocal);
+        reminder.TriggerAtUtc = triggerAt.UtcDateTime;
 
         if (message != null)
             reminder.Content = message;
@@ -86,7 +86,7 @@ public class ReminderService(
         {
             embedding.Content = BuildEmbeddingContent(
                 message ?? reminder.Content,
-                triggerAtLocal,
+                triggerAt,
                 recurrence?.Frequency,
                 recurrence?.Interval
             );
@@ -96,9 +96,9 @@ public class ReminderService(
         await applicationContext.SaveChangesAsync();
     }
 
-    private static string BuildEmbeddingContent(string message, DateTime localTriggerTime, Frequency? recurrenceUnit, int? recurrenceInterval)
+    private static string BuildEmbeddingContent(string message, DateTimeOffset triggerAt, Frequency? recurrenceUnit, int? recurrenceInterval)
     {
-        var triggerAtString = localTriggerTime.ToString(EmbeddingService.DateFormat);
+        var triggerAtString = triggerAt.LocalDateTime.ToString(EmbeddingService.DateFormat);
         if (!recurrenceUnit.HasValue)
             return $"Reminder scheduled for {triggerAtString} with prompt: '{message}'.";
 

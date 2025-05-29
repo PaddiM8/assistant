@@ -159,6 +159,7 @@ public class OpenAiLlmClient : ILlmClient
                 # Best Practices
                 * Important: Vector memories are for LONG-TERM *notes*
                 * Prefer update functions over deleting and re-adding data.
+                * Prefer reminders over self-prompts when setting reminders, but do use self-prompts for other things
                 * When you must ask general or contextual questions before completing a task, ALWAYS save what you learn to AssistantMemory, unless it's clearly situational.
                 * Keep expanding your knowledge base to better assist in future tasks.
                 * Whenever you perform a task, ask yourself it anything you learned from this situation could be added to the vector database.
@@ -167,6 +168,7 @@ public class OpenAiLlmClient : ILlmClient
                 * When querying the vector db, write whole sentences if possible, with as much context as possible
                 * Don't save memories from system messages
                 * Before telling the user that a task was completed, make sure that the tool output indicated success
+                * Avoid using minutes and seconds in times *when talking to the user* (but do use them for other things)
                 * If a tool call fails, give up after at most 3 failed calls
 
                 The current date + hour is {now} ({dayOfWeek}).

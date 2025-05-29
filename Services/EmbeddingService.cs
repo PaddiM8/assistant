@@ -75,8 +75,8 @@ public class EmbeddingService(
         Type? relatedItemType,
         int limit = 3,
         bool includeStale = false,
-        DateTimeOffset? afterDateTimeLocal = null,
-        DateTimeOffset? beforeDateTimeLocal = null
+        DateTimeOffset? afterDateTime = null,
+        DateTimeOffset? beforeDateTime = null
     )
     {
         using var scope = _serviceProvider.CreateScope();
@@ -99,11 +99,11 @@ public class EmbeddingService(
         if (!includeStale)
             query = query.Where(x => !x.IsStale);
 
-        if (afterDateTimeLocal.HasValue)
-            query = query.Where(x => x.AddedAtUtc > _timeService.ToUtc(afterDateTimeLocal.Value.DateTime));
+        if (afterDateTime.HasValue)
+            query = query.Where(x => x.AddedAtUtc > afterDateTime.Value.LocalDateTime);
 
-        if (beforeDateTimeLocal.HasValue)
-            query = query.Where(x => x.AddedAtUtc < _timeService.ToUtc(beforeDateTimeLocal.Value.DateTime));
+        if (beforeDateTime.HasValue)
+            query = query.Where(x => x.AddedAtUtc < beforeDateTime.Value.LocalDateTime);
 
         return await query
             .OrderBy(x => x.Embedding!.L2Distance(queryVector))
