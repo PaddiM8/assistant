@@ -218,11 +218,10 @@ public class ToolService
     {
         var reminder = await _reminderService.RemoveAsync(call.Id);
         var schedulingString = BuildSchedulingString(
-            reminder.TriggerAtUtc,
+            _timeService.ToLocal(reminder.TriggerAtUtc),
             reminder.Content,
             reminder.RecurrenceUnit,
-            reminder.RecurrenceInterval,
-            isUtc: true
+            reminder.RecurrenceInterval
         );
         await SendUserResponseAsync($"Removed reminder {call.Id}. {schedulingString}.");
 
@@ -343,16 +342,12 @@ public class ToolService
         DateTimeOffset triggerAt,
         string? message,
         Frequency? recurrenceUnit,
-        int? recurrenceInterval,
-        bool isUtc = false
+        int? recurrenceInterval
     )
     {
         var builder = new StringBuilder();
         builder.Append(recurrenceUnit == null ? "Trigger at: " : "Initial trigger at: ");
         builder.Append(triggerAt.ToString(EmbeddingService.DateFormat));
-
-        if (isUtc)
-            builder.Append(" UTC");
 
         if (recurrenceUnit.HasValue)
         {

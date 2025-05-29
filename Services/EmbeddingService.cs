@@ -12,7 +12,7 @@ public class EmbeddingService(
     TimeService timeService
 )
 {
-    public const string DateFormat = "yyyy-MM-ddTHH:mm:ssZ";
+    public const string DateFormat = "yyyy-MM-ddTHH:mm:ss";
 
     private readonly IEmbeddingClient _embeddingClient = embeddingClient;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
