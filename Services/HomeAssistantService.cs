@@ -58,6 +58,17 @@ public class HomeAssistantService(
 
     public async Task SetLightStateAsync(string entityId, bool isOn, int? brightnessPointChange, int? coldnessPointChange)
     {
+        if (isOn)
+        {
+            var automationState = await GetStateAsync("automation.update_lights");
+            if (automationState.State == "off")
+            {
+                await ResetLightAsync(entityId);
+
+                return;
+            }
+        }
+
         var automaticLightsOffData = new JsonObject
         {
             { "entity_id", "automation.update_lights" },

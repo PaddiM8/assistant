@@ -5,7 +5,8 @@ public record PlaneraTicket(
     string Title,
     string Description,
     PlaneraTicketPriority Priority,
-    PlaneraTicketStatus Status
+    PlaneraTicketStatus Status,
+    string ProjectId
 );
 
 public enum PlaneraTicketStatus

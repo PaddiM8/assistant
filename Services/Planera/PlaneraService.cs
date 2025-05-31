@@ -73,14 +73,21 @@ public class PlaneraService(IHttpClientFactory httpClientFactory, IConfiguration
             throw new Exception($"Received inv alid response from Planera API: {node?.ToJsonString()}");
     }
 
-    public async Task DeleteTicketAsync(string projectId, string id)
+    public async Task<PlaneraTicket?> DeleteTicketAsync(string projectSlug, string id)
     {
         var httpClient = GetClient();
-
         var planeraConfig = _configuration.GetSection("Planera");
         var url = planeraConfig.GetValue<string>("Url")?.TrimEnd('/');
-        var response = await httpClient.DeleteAsync($"{url}/api/tickets/{projectId}/{id}");
+        var username = planeraConfig.GetValue<string>("Username")?.TrimEnd('/');
+
+        var getResponse = await httpClient.GetAsync($"{url}/api/tickets/{username}/{projectSlug}/{id}");
+        getResponse.EnsureSuccessStatusCode();
+        var ticket = await getResponse.Content.ReadFromJsonAsync<PlaneraTicket>();
+
+        var response = await httpClient.DeleteAsync($"{url}/api/tickets/{ticket?.ProjectId}/{id}");
         response.EnsureSuccessStatusCode();
+
+        return ticket;
     }
 
     private HttpClient GetClient()

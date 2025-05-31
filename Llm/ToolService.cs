@@ -327,9 +327,10 @@ public class ToolService
     private async Task<ToolResponse> RemoveVectorMemoryAsync(RemoveVectorMemorySchema call)
     {
         var entry = await _embeddingService.RemoveAsync(call.Id);
-        await SendUserResponseAsync($"Removed vector memory {call.Id}. Content: {entry.Content.Truncate(100, "...")}");
+        var response = $"Removed vector memory {call.Id}. Content: {entry.Content.Truncate(100, "...")}";
+        await SendUserResponseAsync(response);
 
-        return new ToolResponse($"Removed vector memory {call.Id}.");
+        return new ToolResponse(response);
     }
 
     private async Task<ToolResponse> UpdateVectorMemoryAsync(UpdateVectorMemorySchema call)
@@ -439,8 +440,14 @@ public class ToolService
     {
         var entry = await _selfPromptService.RemoveAsync(call.Id);
         await SendUserResponseAsync($"Removed self-prompt with ID {call.Id}: {entry.Content.Truncate(500, "... (truncated)")}");
+        var schedulingString = BuildSchedulingString(
+            _timeService.ToLocal(entry.TriggerAtUtc),
+            entry.Content,
+            entry.RecurrenceUnit,
+            entry.RecurrenceInterval
+        );
 
-        return new ToolResponse($"Removed self-prompt.");
+        return new ToolResponse($"Removed self-prompt with ID {call.Id}. {schedulingString}");
     }
 
     private async Task<ToolResponse> UpdateSelfPromptAsync(UpdateSelfPromptSchema call)
@@ -514,13 +521,20 @@ public class ToolService
 
     private async Task<ToolResponse> DeleteFromShoppingListAsync(DeleteFromShoppingListSchema call)
     {
-        var projectId = _configuration.GetSection("Planera").GetValue<string>("ShoppingListId")!;
+        var projectSlug = _configuration.GetSection("Planera").GetValue<string>("ShoppingListSlug")!;
+        var builder = new StringBuilder();
+        builder.AppendLine("Deleted item(s) from shopping list:");
+
         foreach (var id in call.Ids)
-            await _planeraService.DeleteTicketAsync(projectId, id);
+        {
+            var ticket = await _planeraService.DeleteTicketAsync(projectSlug, id);
+            if (ticket != null)
+                builder.AppendLine($"{id}: '{ticket.Title}' (Priority: {ticket.Priority})");
+        }
 
-        await SendUserResponseAsync($"Deleted item(s) from the shopping list (IDs={string.Join(", ", call.Ids)}).");
+        await SendUserResponseAsync(builder.ToString());
 
-        return new ToolResponse($"Deleted item(s) with IDs: {string.Join(", ", call.Ids)}.");
+        return new ToolResponse(builder.ToString());
     }
 
     private async Task<ToolResponse> ControlSmartLightAsync(ControlSmartLightSchema call)
