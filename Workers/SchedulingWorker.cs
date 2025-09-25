@@ -52,7 +52,7 @@ public class SchedulingWorker(IServiceProvider serviceProvider, ILogger<Scheduli
         _applicationContext = _scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         _embeddingService = _scope.ServiceProvider.GetRequiredService<EmbeddingService>();
         _messagingService = _scope.ServiceProvider.GetRequiredService<IMessagingService>();
-        _llmClient = _scope.ServiceProvider.GetRequiredService<ILlmClient>();
+        _llmClient = _scope.ServiceProvider.GetRequiredService<AssistantLlmClient>();
     }
 
     private async Task DoPeriodicalWorkAsync()

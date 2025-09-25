@@ -10,7 +10,7 @@ public class OpenAiEmbeddingClient : IEmbeddingClient
 
     public OpenAiEmbeddingClient(IConfiguration configuration, ILogger<OpenAiEmbeddingClient> logger)
     {
-        string apiKey = configuration.GetSection("OpenAi").GetValue<string>("ApiKey")
+        string apiKey = configuration.GetSection("Assistant").GetValue<string>("ApiKey")
             ?? throw new ArgumentException("Missing API key for OpenAI.");
 
         _logger = logger;
