@@ -34,14 +34,17 @@ public class DiscordWorker(
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        try
+        while (true)
         {
-            await StartClientAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex.ToString());
-            await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+            try
+            {
+                await StartClientAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.ToString());
+                await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+            }
         }
     }
 
