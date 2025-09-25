@@ -15,7 +15,8 @@ public class DiscordWorker(
 ) : IHostedService
 {
     private static DiscordClient? _client;
-    private static ILlmClient? _llmClient;
+    private static ILlmClient? _assistantClient;
+    private static ILlmClient? _tutorClient;
 
     private readonly ILogger<DiscordWorker> _logger = logger;
     private readonly IConfiguration _configuration = configuration;
@@ -29,7 +30,7 @@ public class DiscordWorker(
 
     public static ILlmClient? GetLlmClient()
     {
-        return _llmClient;
+        return _assistantClient;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -69,7 +70,8 @@ public class DiscordWorker(
         _client = new DiscordClient(clientConfig);
         _client.MessageCreated += HandleMessageCreatedAsync;
 
-        _llmClient = _serviceProvider.GetRequiredService<ILlmClient>();
+        _assistantClient = _serviceProvider.GetRequiredService<AssistantLlmClient>();
+        _tutorClient = _serviceProvider.GetRequiredService<LanguageTutorLlmClient>();
 
         await _client.ConnectAsync();
         await Task.Delay(-1, cancellationToken);
@@ -95,7 +97,10 @@ public class DiscordWorker(
             content = BuildMessageContentWithReply(args.Message);
         }
 
-        var llvmResponse = await _llmClient!.SendAsync(content, args.Message.Author.Id.ToString(), fallbackHistory);
+        var llmClient = args.Message.Channel is DiscordDmChannel
+            ? _tutorClient
+            : _assistantClient;
+        var llvmResponse = await llmClient!.SendAsync(content, args.Message.Author.Id.ToString(), fallbackHistory);
         var responseBuilder = new StringBuilder();
         responseBuilder.AppendLine(llvmResponse.Message.Trim());
 

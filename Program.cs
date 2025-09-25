@@ -33,7 +33,8 @@ builder.Services.AddHostedService<SchedulingWorker>();
 builder.Services.AddHostedService<DiscordWorker>();
 
 // LLM tools
-builder.Services.AddTransient<ILlmClient, OpenAiLlmClient>();
+builder.Services.AddTransient<AssistantLlmClient>();
+builder.Services.AddTransient<LanguageTutorLlmClient>();
 builder.Services.AddTransient<IEmbeddingClient, OpenAiEmbeddingClient>();
 builder.Services.AddTransient<ToolService>();
 
