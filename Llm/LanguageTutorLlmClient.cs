@@ -58,7 +58,7 @@ public class LanguageTutorLlmClient : ILlmClient
               * “Word of the day” challenge: suggest one new word and ask the learner to use it.
             - Vary exercises and insert them sparsely, only when they fit context.
             - Today’s date is {DateTime.Now:O}.
-            - The learner is interested in programming, grammar, public transport, and baking bread.
+            - The learner is interested in programming, grammar, public transport, and baking bread, but also wants to talk about other things
             """;
         var prompt = ChatMessage.CreateSystemMessage(promptMessage);
         ClientResult<ChatCompletion> completion;
